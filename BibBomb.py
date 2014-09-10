@@ -40,14 +40,12 @@ Fields = {'article':[['author','title','journal','year'],
           'electronic':[[],
                         []]}
 
-#try:
-#    inputfile = sys.argv[1]
-#except Exception as err:
-#    print(err)
-#    print('Histogram.py <inputfile>')
-#    sys.exit(2)
-
-inputfile = '/media/monk/School/Research/References/aigaion_export_2014_09_04.bib'
+try:
+    inputfile = sys.argv[1]
+except Exception as err:
+    print(err)
+    print('Histogram.py <inputfile>')
+    sys.exit(2)
 
 with open(inputfile, 'r') as bib_file:
     parser = BibTexParser(bib_file.read())
