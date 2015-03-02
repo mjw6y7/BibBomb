@@ -95,7 +95,7 @@ def main(args):
             print('{0} contains errors in:{1}'.format(inputfile, err))
 
         if len(opt) != 0:
-            print('{0} entrys are missing optional fields'.format(len(opt)))
+            print('{0} entries are missing optional fields'.format(len(opt)))
 
         if args.plot:
             print('Plotting histogram for {}'.format(inputfile))
