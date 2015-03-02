@@ -40,48 +40,64 @@ Fields = {'article':[['author','title','journal','year'],
           'electronic':[[],
                         []]}
 
-try:
-    inputfile = sys.argv[1]
-except Exception as err:
-    print(err)
-    print('Histogram.py <inputfile>')
-    sys.exit(2)
 
-with open(inputfile, 'r') as bib_file:
-    parser = BibTexParser(bib_file.read())
-    bib_dict = parser.get_entry_dict()
+def parse_and_validate(inputfile):
+    with open(inputfile, 'r') as bib_file:
+        parser = BibTexParser(bib_file.read())
+        bib_dict = parser.get_entry_dict()
 
-bib_err = []
-bib_opt = []
-bib_year = []
+    bib_err = []
+    bib_opt = []
+    bib_year = []
 
-for doc in bib_dict.keys():
-    doctype = bib_dict[doc]['type']
-    for field in Fields[doctype][REQ]:
+    for doc in bib_dict.keys():
+        doctype = bib_dict[doc]['type']
+        for field in Fields[doctype][REQ]:
+            try:
+                bib_dict[doc][field]
+            except:
+                bib_err.append(doc)
+        for field in Fields[doctype][OPT]:
+            try:
+                bib_dict[doc][field]
+            except:
+                bib_opt.append(doc)
         try:
-            bib_dict[doc][field]
+            bib_year.append(int(bib_dict[doc]['year']))
         except:
-            bib_err.append(doc)
-    for field in Fields[doctype][OPT]:
-        try:
-            bib_dict[doc][field]
-        except:
-            bib_opt.append(doc)
+            pass
+
+    return bib_err, bib_opt, bib_year
+
+
+def plot_years(bib_year):
+    plt.hist(bib_year, bins=max(bib_year)-min(bib_year))
+    plt.title("Histogram of References")
+    plt.xlabel("Year Published")
+    plt.ylabel("Number of References")
+    plt.show()
+
+
+def main():
     try:
-        bib_year.append(int(bib_dict[doc]['year']))
-    except:
-        pass
+        inputfile = sys.argv[1]
+        print('Parsing {}'.format(inputfile))
+    except Exception as err:
+        print(err)
+        print('Histogram.py <inputfile>')
+        sys.exit(2)
 
-if len(bib_err) == 0:
-    print('{0} contains no errors'.format(inputfile))
-else:
-    print('{0} contains errors in:{1}'.format(inputfile, bib_err))
+    err, opt, year = parse_and_validate(inputfile)
 
-if len(bib_opt) != 0:
-    print('{0} entrys are missing optional fields'.format(len(bib_opt)))
+    if len(err) == 0:
+        print('{0} contains no errors'.format(inputfile))
+    else:
+        print('{0} contains errors in:{1}'.format(inputfile, err))
 
-plt.hist(bib_year, bins=max(bib_year)-min(bib_year))
-plt.title("Histogram of References")
-plt.xlabel("Year Published")
-plt.ylabel("Number of References")
-plt.show()
+    if len(opt) != 0:
+        print('{0} entrys are missing optional fields'.format(len(opt)))
+
+    plot_years(year)
+
+if __name__ == '__main__':
+    main()
