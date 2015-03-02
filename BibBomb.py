@@ -97,9 +97,13 @@ def main(args):
         if len(opt) != 0:
             print('{0} entries are missing optional fields'.format(len(opt)))
 
+        if args.fix:
+            print("Cite key repairer isn't ready yet...")
+
         if args.plot:
             print('Plotting histogram for {}'.format(inputfile))
             plot_years(year)
+
 
 
 if __name__ == '__main__':
