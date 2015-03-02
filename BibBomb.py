@@ -1,6 +1,7 @@
 #! /usr/bin/env python3
 from bibtexparser.bparser import BibTexParser
 import matplotlib.pyplot as plt
+import os
 import sys
 
 REQ = 0
@@ -78,26 +79,38 @@ def plot_years(bib_year):
     plt.show()
 
 
-def main():
-    try:
-        inputfile = sys.argv[1]
+def main(args):
+    for inputfile in args.bib_file:
+
+        if not os.path.exists(inputfile):
+            print('Cannot open {}. Skipping...'.format(inputfile))
+            continue
+
         print('Parsing {}'.format(inputfile))
-    except Exception as err:
-        print(err)
-        print('Histogram.py <inputfile>')
-        sys.exit(2)
+        err, opt, year = parse_and_validate(inputfile)
 
-    err, opt, year = parse_and_validate(inputfile)
+        if len(err) == 0:
+            print('{0} contains no errors'.format(inputfile))
+        else:
+            print('{0} contains errors in:{1}'.format(inputfile, err))
 
-    if len(err) == 0:
-        print('{0} contains no errors'.format(inputfile))
-    else:
-        print('{0} contains errors in:{1}'.format(inputfile, err))
+        if len(opt) != 0:
+            print('{0} entrys are missing optional fields'.format(len(opt)))
 
-    if len(opt) != 0:
-        print('{0} entrys are missing optional fields'.format(len(opt)))
+        if args.plot:
+            print('Plotting histogram for {}'.format(inputfile))
+            plot_years(year)
 
-    plot_years(year)
 
 if __name__ == '__main__':
-    main()
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Check your BibTeX files')
+    parser.add_argument('bib_file', type=str, nargs='+',
+                        help='BibTeX files to check')
+    parser.add_argument('--plot', action='store_true',
+                        help='Plot a histogram of pulication years')
+    parser.add_argument('--fix', action='store_true',
+                        help='Fix citation keys')
+
+    main(parser.parse_args())
