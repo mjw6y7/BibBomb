@@ -119,33 +119,41 @@ def plot_years(bib_year):
 def main(args):
     for inputfile in args.bib_file:
 
+        print('\nChecking {}'.format(inputfile), file=sys.stderr)
+
         if not os.path.exists(inputfile):
-            print('Cannot open {}. Skipping...'.format(inputfile), file=sys.stderr)
+            print('\tCannot open {}. Skipping...'.format(inputfile), file=sys.stderr)
             continue
 
-        print('Parsing {}'.format(inputfile), file=sys.stderr)
+        print('\tParsing {}'.format(inputfile), file=sys.stderr)
         err, opt, year = parse_and_validate(inputfile)
 
+        if not args.lst:
+            print('\tDisabled entry output. Enable with --list\n', file=sys.stderr)
+
         if len(err) == 0:
-            print('{0} contains no errors'.format(inputfile), file=sys.stderr)
-        else:
-            print('{0} contains errors in:'.format(inputfile), file=sys.stderr)
+            print('\t{0} contains no errors'.format(inputfile), file=sys.stderr)
+        elif args.lst:
+            print('\t{0} contains errors in:'.format(inputfile), file=sys.stderr)
             pprint(err)
 
-        if len(opt) != 0:
-            print('{0} entries are missing optional fields'.format(len(opt)), file=sys.stderr)
-
+        key_errs = None
         if args.keys:
             key_errs = check_citekeys(inputfile)
             if len(key_errs) == 0:
-                print('{0} contains no citekey errors'.format(inputfile), file=sys.stderr)
-            else:
-                print('{0} contains errors in:'.format(inputfile), file=sys.stderr)
+                print('\t{0} contains no citekey errors'.format(inputfile), file=sys.stderr)
+            elif args.lst:
+                print('\t{0} contains citekey errors in:'.format(inputfile), file=sys.stderr)
                 pprint(key_errs)
 
         if args.plot:
-            print('Plotting histogram for {}'.format(inputfile), file=sys.stderr)
+            print('\tPlotting histogram for {}'.format(inputfile), file=sys.stderr)
             plot_years(year)
+
+        print('\t{} entries are missing required fields'.format(len(err)), file=sys.stderr)
+        print('\t{} entries are missing optional fields'.format(len(opt)), file=sys.stderr)
+        if key_errs:
+            print('\t{} entries have bad citekeys'.format(len(key_errs)), file=sys.stderr)
 
 
 if __name__ == '__main__':
@@ -158,5 +166,7 @@ if __name__ == '__main__':
                         help='Plot a histogram of pulication years')
     parser.add_argument('--keys', action='store_true',
                         help='Check citation keys')
+    parser.add_argument('--list', dest="lst", action='store_true',
+                        help='List problematic entries')
 
     main(parser.parse_args())
