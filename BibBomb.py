@@ -1,8 +1,11 @@
 #! /usr/bin/env python3
 from bibtexparser.bparser import BibTexParser
+from pprint import pprint
 import matplotlib.pyplot as plt
 import os
+import re
 import sys
+
 
 REQ = 0
 OPT = 1
@@ -71,6 +74,40 @@ def parse_and_validate(inputfile):
     return bib_err, bib_opt, bib_year
 
 
+def check_citekeys(inputfile):
+    """Check citekeys using this guide:
+
+    Textual representation: **AaBCCd**
+
+    - **Aa**
+      - First two initials in first author's last name.
+
+    - **B**
+      - First initial in second author's last name (if there is one).
+
+    - **CC**
+      - Last two digits of year the paper was published.
+
+    - **d**
+      - In case there is already a paper in the database that already
+        has this same ID, append an "a" or "b" (or "c" or "d"...) to
+        the end of the ID.
+
+    """
+    with open(inputfile, 'r') as bib_file:
+        parser = BibTexParser(bib_file.read())
+        bib_dict = parser.get_entry_dict()
+
+    citekey_re = re.compile(r"[A-Z][a-z][A-Z]?\d{2}[a-z]?")
+
+    citekey_err = []
+    for key in bib_dict:
+        if citekey_re.match(key) is None:
+            citekey_err.append(key)
+
+    return citekey_err
+
+
 def plot_years(bib_year):
     plt.hist(bib_year, bins=max(bib_year)-min(bib_year))
     plt.title("Histogram of References")
@@ -92,18 +129,23 @@ def main(args):
         if len(err) == 0:
             print('{0} contains no errors'.format(inputfile), file=sys.stderr)
         else:
-            print('{0} contains errors in:{1}'.format(inputfile, err), file=sys.stderr)
+            print('{0} contains errors in:'.format(inputfile), file=sys.stderr)
+            pprint(err)
 
         if len(opt) != 0:
             print('{0} entries are missing optional fields'.format(len(opt)), file=sys.stderr)
 
-        if args.fix:
-            print("Cite key repairer isn't ready yet...", file=sys.stderr)
+        if args.keys:
+            key_errs = check_citekeys(inputfile)
+            if len(key_errs) == 0:
+                print('{0} contains no citekey errors'.format(inputfile), file=sys.stderr)
+            else:
+                print('{0} contains errors in:'.format(inputfile), file=sys.stderr)
+                pprint(key_errs)
 
         if args.plot:
             print('Plotting histogram for {}'.format(inputfile), file=sys.stderr)
             plot_years(year)
-
 
 
 if __name__ == '__main__':
@@ -114,7 +156,7 @@ if __name__ == '__main__':
                         help='BibTeX files to check')
     parser.add_argument('--plot', action='store_true',
                         help='Plot a histogram of pulication years')
-    parser.add_argument('--fix', action='store_true',
-                        help='Fix citation keys')
+    parser.add_argument('--keys', action='store_true',
+                        help='Check citation keys')
 
     main(parser.parse_args())
