@@ -2,6 +2,7 @@
 from bibtexparser.bparser import BibTexParser
 from pprint import pprint
 import matplotlib.pyplot as plt
+import itertools
 import os
 import re
 import sys
@@ -45,11 +46,14 @@ Fields = {'article':[['author','title','journal','year'],
                         []]}
 
 
-def parse_and_validate(inputfile):
+def parse(inputfile):
     with open(inputfile, 'r') as bib_file:
         parser = BibTexParser(bib_file.read())
-        bib_dict = parser.get_entry_dict()
+        return parser.get_entry_dict()
 
+
+def parse_and_validate(inputfile):
+    bib_dict = parse(inputfile)
     bib_err = []
     bib_opt = []
     bib_year = []
@@ -94,18 +98,24 @@ def check_citekeys(inputfile):
         the end of the ID.
 
     """
-    with open(inputfile, 'r') as bib_file:
-        parser = BibTexParser(bib_file.read())
-        bib_dict = parser.get_entry_dict()
+    citekey_re = re.compile(r"@[a-zA-Z]+\s*\{\s*(\w+),")
+    with open(inputfile) as f:
+        all_keys = sorted(citekey_re.findall(f.read()))
 
-    citekey_re = re.compile(r"[A-Z][a-z][A-Z]?\d{2}[a-z]?")
-
-    citekey_err = []
+    bib_dict = parse(inputfile)
+    format_re = re.compile(r"[A-Z][a-z][A-Z]?\d{2}[a-z]?")
+    format_err = []
     for key in bib_dict:
-        if citekey_re.match(key) is None:
-            citekey_err.append(key)
+        if format_re.match(key) is None:
+            format_err.append(key)
 
-    return citekey_err
+    duplicate_err = {}
+    for key, copies in itertools.groupby(all_keys):
+        num_copies = len(list(copies))
+        if num_copies > 1:
+            duplicate_err[key] = num_copies
+
+    return format_err, duplicate_err
 
 
 def plot_years(bib_year):
@@ -118,7 +128,6 @@ def plot_years(bib_year):
 
 def main(args):
     for inputfile in args.bib_file:
-
         print('\nChecking {}'.format(inputfile), file=sys.stderr)
 
         if not os.path.exists(inputfile):
@@ -128,22 +137,23 @@ def main(args):
         print('\tParsing {}'.format(inputfile), file=sys.stderr)
         err, opt, year = parse_and_validate(inputfile)
 
-        if not args.lst:
+        if not args.field_lst and not args.key_lst:
             print('\tDisabled entry output. Enable with --list\n', file=sys.stderr)
 
         if len(err) == 0:
             print('\t{0} contains no errors'.format(inputfile), file=sys.stderr)
-        elif args.lst:
+        elif args.field_lst:
             print('\t{0} contains errors in:'.format(inputfile), file=sys.stderr)
-            pprint(err)
+            pprint(sorted(err))
 
-        key_errs = None
+        format_errs, key_errs = None, None
         if args.keys:
-            key_errs = check_citekeys(inputfile)
-            if len(key_errs) == 0:
+            format_errs, key_errs = check_citekeys(inputfile)
+            if len(format_errs) == 0 and len(key_errs) == 0:
                 print('\t{0} contains no citekey errors'.format(inputfile), file=sys.stderr)
-            elif args.lst:
+            elif args.key_lst:
                 print('\t{0} contains citekey errors in:'.format(inputfile), file=sys.stderr)
+                pprint(sorted(format_errs))
                 pprint(key_errs)
 
         if args.plot:
@@ -152,8 +162,9 @@ def main(args):
 
         print('\t{} entries are missing required fields'.format(len(err)), file=sys.stderr)
         print('\t{} entries are missing optional fields'.format(len(opt)), file=sys.stderr)
-        if key_errs:
-            print('\t{} entries have bad citekeys'.format(len(key_errs)), file=sys.stderr)
+        if key_errs or format_errs:
+            print('\t{} entries have badly formatted citekeys'.format(len(format_errs)), file=sys.stderr)
+            print('\t{} entries have a duplicated citekey'.format(len(key_errs)), file=sys.stderr)
 
 
 if __name__ == '__main__':
@@ -166,7 +177,9 @@ if __name__ == '__main__':
                         help='Plot a histogram of pulication years')
     parser.add_argument('--keys', action='store_true',
                         help='Check citation keys')
-    parser.add_argument('--list', dest="lst", action='store_true',
-                        help='List problematic entries')
+    parser.add_argument('--list-field-errors', dest="field_lst", action='store_true',
+                        help='List entries with problematic fields')
+    parser.add_argument('--list-key-errors', dest="key_lst", action='store_true',
+                        help='List entries with problematic keys')
 
     main(parser.parse_args())
