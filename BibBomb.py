@@ -1,7 +1,11 @@
 #! /usr/bin/env python3
 from bibtexparser.bparser import BibTexParser
+from pprint import pprint
 import matplotlib.pyplot as plt
+import os
+import re
 import sys
+
 
 REQ = 0
 OPT = 1
@@ -40,48 +44,129 @@ Fields = {'article':[['author','title','journal','year'],
           'electronic':[[],
                         []]}
 
-try:
-    inputfile = sys.argv[1]
-except Exception as err:
-    print(err)
-    print('Histogram.py <inputfile>')
-    sys.exit(2)
 
-with open(inputfile, 'r') as bib_file:
-    parser = BibTexParser(bib_file.read())
-    bib_dict = parser.get_entry_dict()
+def parse_and_validate(inputfile):
+    with open(inputfile, 'r') as bib_file:
+        parser = BibTexParser(bib_file.read())
+        bib_dict = parser.get_entry_dict()
 
-bib_err = []
-bib_opt = []
-bib_year = []
+    bib_err = []
+    bib_opt = []
+    bib_year = []
 
-for doc in bib_dict.keys():
-    doctype = bib_dict[doc]['type']
-    for field in Fields[doctype][REQ]:
+    for doc in bib_dict.keys():
+        doctype = bib_dict[doc]['type']
+        for field in Fields[doctype][REQ]:
+            try:
+                bib_dict[doc][field]
+            except:
+                bib_err.append(doc)
+        for field in Fields[doctype][OPT]:
+            try:
+                bib_dict[doc][field]
+            except:
+                bib_opt.append(doc)
         try:
-            bib_dict[doc][field]
+            bib_year.append(int(bib_dict[doc]['year']))
         except:
-            bib_err.append(doc)
-    for field in Fields[doctype][OPT]:
-        try:
-            bib_dict[doc][field]
-        except:
-            bib_opt.append(doc)
-    try:
-        bib_year.append(int(bib_dict[doc]['year']))
-    except:
-        pass
+            pass
 
-if len(bib_err) == 0:
-    print('{0} contains no errors'.format(inputfile))
-else:
-    print('{0} contains errors in:{1}'.format(inputfile, bib_err))
+    return bib_err, bib_opt, bib_year
 
-if len(bib_opt) != 0:
-    print('{0} entrys are missing optional fields'.format(len(bib_opt)))
 
-plt.hist(bib_year, bins=max(bib_year)-min(bib_year))
-plt.title("Histogram of References")
-plt.xlabel("Year Published")
-plt.ylabel("Number of References")
-plt.show()
+def check_citekeys(inputfile):
+    """Check citekeys using this guide:
+
+    Textual representation: **AaBCCd**
+
+    - **Aa**
+      - First two initials in first author's last name.
+
+    - **B**
+      - First initial in second author's last name (if there is one).
+
+    - **CC**
+      - Last two digits of year the paper was published.
+
+    - **d**
+      - In case there is already a paper in the database that already
+        has this same ID, append an "a" or "b" (or "c" or "d"...) to
+        the end of the ID.
+
+    """
+    with open(inputfile, 'r') as bib_file:
+        parser = BibTexParser(bib_file.read())
+        bib_dict = parser.get_entry_dict()
+
+    citekey_re = re.compile(r"[A-Z][a-z][A-Z]?\d{2}[a-z]?")
+
+    citekey_err = []
+    for key in bib_dict:
+        if citekey_re.match(key) is None:
+            citekey_err.append(key)
+
+    return citekey_err
+
+
+def plot_years(bib_year):
+    plt.hist(bib_year, bins=max(bib_year)-min(bib_year))
+    plt.title("Histogram of References")
+    plt.xlabel("Year Published")
+    plt.ylabel("Number of References")
+    plt.show()
+
+
+def main(args):
+    for inputfile in args.bib_file:
+
+        print('\nChecking {}'.format(inputfile), file=sys.stderr)
+
+        if not os.path.exists(inputfile):
+            print('\tCannot open {}. Skipping...'.format(inputfile), file=sys.stderr)
+            continue
+
+        print('\tParsing {}'.format(inputfile), file=sys.stderr)
+        err, opt, year = parse_and_validate(inputfile)
+
+        if not args.lst:
+            print('\tDisabled entry output. Enable with --list\n', file=sys.stderr)
+
+        if len(err) == 0:
+            print('\t{0} contains no errors'.format(inputfile), file=sys.stderr)
+        elif args.lst:
+            print('\t{0} contains errors in:'.format(inputfile), file=sys.stderr)
+            pprint(err)
+
+        key_errs = None
+        if args.keys:
+            key_errs = check_citekeys(inputfile)
+            if len(key_errs) == 0:
+                print('\t{0} contains no citekey errors'.format(inputfile), file=sys.stderr)
+            elif args.lst:
+                print('\t{0} contains citekey errors in:'.format(inputfile), file=sys.stderr)
+                pprint(key_errs)
+
+        if args.plot:
+            print('\tPlotting histogram for {}'.format(inputfile), file=sys.stderr)
+            plot_years(year)
+
+        print('\t{} entries are missing required fields'.format(len(err)), file=sys.stderr)
+        print('\t{} entries are missing optional fields'.format(len(opt)), file=sys.stderr)
+        if key_errs:
+            print('\t{} entries have bad citekeys'.format(len(key_errs)), file=sys.stderr)
+
+
+if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Check your BibTeX files')
+    parser.add_argument('bib_file', type=str, nargs='+',
+                        help='BibTeX files to check')
+    parser.add_argument('--plot', action='store_true',
+                        help='Plot a histogram of pulication years')
+    parser.add_argument('--keys', action='store_true',
+                        help='Check citation keys')
+    parser.add_argument('--list', dest="lst", action='store_true',
+                        help='List problematic entries')
+
+    main(parser.parse_args())
