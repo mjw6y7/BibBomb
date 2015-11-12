@@ -1,5 +1,5 @@
 #! /usr/bin/env python3
-from bibtexparser.bparser import BibTexParser
+import bibtexparser
 from pprint import pprint
 import matplotlib.pyplot as plt
 import itertools
@@ -45,33 +45,30 @@ Fields = {'article':[['author','title','journal','year'],
           'electronic':[[],
                         []]}
 
-
 def parse(inputfile):
     with open(inputfile, 'r') as bib_file:
-        parser = BibTexParser(bib_file.read())
-        return parser.get_entry_dict()
-
+        return bibtexparser.loads(bib_file.read())
 
 def parse_and_validate(inputfile):
-    bib_dict = parse(inputfile)
+    bib_database = parse(inputfile)
     bib_err = []
     bib_opt = []
     bib_year = []
 
-    for doc in bib_dict.keys():
-        doctype = bib_dict[doc]['type']
+    for doc in bib_database.entries:
+        doctype = doc['ENTRYTYPE']
         for field in Fields[doctype][REQ]:
             try:
-                bib_dict[doc][field]
+                doc[field]
             except:
-                bib_err.append(doc)
+                bib_err.append(doc['ID'])
         for field in Fields[doctype][OPT]:
             try:
-                bib_dict[doc][field]
+                doc[field]
             except:
-                bib_opt.append(doc)
+                bib_opt.append(doc['ID'])
         try:
-            bib_year.append(int(bib_dict[doc]['year']))
+            bib_year.append(int(doc['year']))
         except:
             pass
 
@@ -102,12 +99,12 @@ def check_citekeys(inputfile):
     with open(inputfile) as f:
         all_keys = sorted(citekey_re.findall(f.read()))
 
-    bib_dict = parse(inputfile)
+    bib_database = parse(inputfile)
     format_re = re.compile(r"[A-Z][a-z][A-Z]?\d{2}[a-z]?")
     format_err = []
-    for key in bib_dict:
-        if format_re.match(key) is None:
-            format_err.append(key)
+    for doc in bib_database.entries:
+        if format_re.match(doc['ID']) is None:
+            format_err.append(doc['ID'])
 
     duplicate_err = {}
     for key, copies in itertools.groupby(all_keys):
