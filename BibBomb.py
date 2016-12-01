@@ -1,6 +1,5 @@
 #! /usr/bin/env python3
 import bibtexparser
-from pprint import pprint
 import matplotlib.pyplot as plt
 import itertools
 import os
@@ -140,7 +139,7 @@ def main(args):
         print('\tParsing {}'.format(inputfile), file=sys.stderr)
         err, opt, year = parse_and_validate(inputfile)
 
-        if not args.field_lst and not args.opt_lst and not args.key_lst:
+        if not args.field_lst and not args.opt_lst and not args.key_dup_lst and not args.key_bad_lst:
             print('\tDisabled entry output. Enable with --list\n', file=sys.stderr)
 
         if len(err) == 0:
@@ -158,14 +157,19 @@ def main(args):
                 print('{}:\t{}'.format(o, opt[o]))
 
         format_errs, key_errs = None, None
-        if args.keys:
+        if args.keys or args.key_dup_lst or args.key_bad_lst:
             format_errs, key_errs = check_citekeys(inputfile)
             if len(format_errs) == 0 and len(key_errs) == 0:
                 print('\t{0} contains no citekey errors'.format(inputfile), file=sys.stderr)
-            elif args.key_lst:
-                print('\t{0} contains citekey errors in:'.format(inputfile), file=sys.stderr)
-                pprint(sorted(format_errs))
-                pprint(key_errs)
+            else:
+                if args.key_dup_lst:
+                    print('\t{0} contains duplicated keys in:'.format(inputfile), file=sys.stderr)
+                    for k in sorted(key_errs):
+                        print('{} x{}'.format(k, key_errs[k]))
+                if args.key_bad_lst:
+                    print('\t{0} contains badly formatted keys in:'.format(inputfile), file=sys.stderr)
+                    for f in sorted(format_errs):
+                        print(f)
 
         if args.plot:
             print('\tPlotting histogram for {}'.format(inputfile), file=sys.stderr)
@@ -192,7 +196,9 @@ if __name__ == '__main__':
                         help='List entries with missing required fields')
     parser.add_argument('--list-optional-fields', dest="opt_lst", action='store_true',
                         help='List entries with missing optional fields')
-    parser.add_argument('--list-key-errors', dest="key_lst", action='store_true',
-                        help='List entries with problematic keys')
+    parser.add_argument('--list-duplicate-keys', dest="key_dup_lst", action='store_true',
+                        help='List entries with duplicate keys')
+    parser.add_argument('--list-bad-keys', dest="key_bad_lst", action='store_true',
+                        help='List entries with badly formatted keys')
 
     main(parser.parse_args())
