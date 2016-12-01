@@ -90,6 +90,7 @@ def check_citekeys(inputfile):
 
     - **B**
       - First initial in second author's last name (if there is one).
+      - Or, third initial of first author's last name, if there is only one author.
 
     - **CC**
       - Last two digits of year the paper was published.
@@ -105,7 +106,7 @@ def check_citekeys(inputfile):
         all_keys = sorted(citekey_re.findall(f.read()))
 
     bib_database = parse(inputfile)
-    format_re = re.compile(r"[A-Z][a-z][A-Z]?\d{2}[a-z]?")
+    format_re = re.compile(r"[A-Z][a-z][A-Za-z]?\d{2}[a-z]?")
     format_err = []
     for doc in bib_database.entries:
         if format_re.match(doc['ID']) is None:
