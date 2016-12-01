@@ -51,8 +51,8 @@ def parse(inputfile):
 
 def parse_and_validate(inputfile):
     bib_database = parse(inputfile)
-    bib_err = []
-    bib_opt = []
+    bib_err = {}
+    bib_opt = {}
     bib_year = []
 
     for doc in bib_database.entries:
@@ -61,12 +61,18 @@ def parse_and_validate(inputfile):
             try:
                 doc[field]
             except:
-                bib_err.append(doc['ID'])
+                if doc['ID'] in bib_err:
+                    bib_err[doc['ID']].append(field)
+                else:
+                    bib_err[doc['ID']] = [field]
         for field in Fields[doctype][OPT]:
             try:
                 doc[field]
             except:
-                bib_opt.append(doc['ID'])
+                if doc['ID'] in bib_opt:
+                    bib_opt[doc['ID']].append(field)
+                else:
+                    bib_opt[doc['ID']] = [field]
         try:
             bib_year.append(int(doc['year']))
         except:
@@ -134,14 +140,22 @@ def main(args):
         print('\tParsing {}'.format(inputfile), file=sys.stderr)
         err, opt, year = parse_and_validate(inputfile)
 
-        if not args.field_lst and not args.key_lst:
+        if not args.field_lst and not args.opt_lst and not args.key_lst:
             print('\tDisabled entry output. Enable with --list\n', file=sys.stderr)
 
         if len(err) == 0:
             print('\t{0} contains no errors'.format(inputfile), file=sys.stderr)
         elif args.field_lst:
             print('\t{0} contains errors in:'.format(inputfile), file=sys.stderr)
-            pprint(sorted(err))
+            for e in sorted(err):
+                print('{}:\t{}'.format(e, err[e]))
+
+        if len(opt) == 0:
+            print('\t{0} contains no missing optional fields'.format(inputfile), file=sys.stderr)
+        elif args.opt_lst:
+            print('\t{0} has missing optional fields in:'.format(inputfile), file=sys.stderr)
+            for o in sorted(opt):
+                print('{}:\t{}'.format(o, opt[o]))
 
         format_errs, key_errs = None, None
         if args.keys:
@@ -174,8 +188,10 @@ if __name__ == '__main__':
                         help='Plot a histogram of pulication years')
     parser.add_argument('--keys', action='store_true',
                         help='Check citation keys')
-    parser.add_argument('--list-field-errors', dest="field_lst", action='store_true',
-                        help='List entries with problematic fields')
+    parser.add_argument('--list-missing-fields', dest="field_lst", action='store_true',
+                        help='List entries with missing required fields')
+    parser.add_argument('--list-optional-fields', dest="opt_lst", action='store_true',
+                        help='List entries with missing optional fields')
     parser.add_argument('--list-key-errors', dest="key_lst", action='store_true',
                         help='List entries with problematic keys')
 
