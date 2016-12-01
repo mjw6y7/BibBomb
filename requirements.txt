@@ -1,0 +1,2 @@
+bibtexparser>=0.6.2
+matplotlib>=1.5.2
